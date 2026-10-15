@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DraftGate — Review Queue</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e4e7ec;
+    --text: #101828;
+    --muted: #667085;
+    --brand: #067647;
+    --brand-bg: #ecfdf3;
+    --danger: #b42318;
+    --danger-bg: #fef3f2;
+    --pending: #b54708;
+    --pending-bg: #fffaeb;
+    --ok: #067647;
+    --ok-bg: #ecfdf3;
+    --edited: #175cd3;
+    --edited-bg: #eff8ff;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; }
+  .brand svg { display: block; }
+  nav.filters { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav.filters button {
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    padding: 6px 10px; border-radius: 999px; font-size: 14px;
+  }
+  nav.filters button:hover { background: var(--bg); color: var(--text); }
+  nav.filters button.active { background: var(--text); color: #fff; }
+  .spacer { flex: 1; }
+  #tokenBtn {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    padding: 7px 12px; border-radius: var(--radius); cursor: pointer; font-size: 14px;
+  }
+  #tokenBtn:hover { background: var(--bg); }
+
+  main { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px 20px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+
+  aside#queue { display: flex; flex-direction: column; gap: 8px; }
+  .queue-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px 14px; cursor: pointer; transition: border-color .12s;
+  }
+  .queue-item:hover { border-color: var(--muted); }
+  .queue-item.selected { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+  .queue-item .qi-top { display: flex; align-items: center; gap: 8px; }
+  .queue-item .qi-title { font-weight: 600; font-size: 14px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .queue-item .qi-preview { color: var(--muted); font-size: 13px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .queue-item .qi-meta { display: flex; gap: 8px; margin-top: 6px; color: var(--muted); font-size: 12px; align-items: center; }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.pending { color: var(--pending); background: var(--pending-bg); }
+  .badge.approved { color: var(--ok); background: var(--ok-bg); }
+  .badge.rejected { color: var(--danger); background: var(--danger-bg); }
+  .badge.edited { color: var(--edited); background: var(--edited-bg); }
+  .badge.delivered { color: var(--ok); background: var(--ok-bg); }
+  .badge.failed { color: var(--danger); background: var(--danger-bg); }
+
+  section#detail { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; min-height: 400px; }
+  .empty { color: var(--muted); text-align: center; margin-top: 120px; font-size: 15px; }
+  .d-head { display: flex; align-items: flex-start; gap: 12px; }
+  .d-title { font-size: 18px; font-weight: 700; margin: 0; flex: 1; word-break: break-word; }
+  .d-meta { color: var(--muted); font-size: 13px; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .tag { background: var(--bg); border: 1px solid var(--border); padding: 2px 10px; border-radius: 999px; font-size: 12px; color: var(--muted); }
+  label.field { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 0 6px; }
+  textarea#contentBox {
+    width: 100%; min-height: 220px; padding: 12px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 13px; line-height: 1.5; resize: vertical; color: var(--text);
+  }
+  textarea#contentBox[readonly] { background: var(--bg); }
+  table.meta-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.meta-table td { border: 1px solid var(--border); padding: 6px 10px; }
+  table.meta-table td:first-child { color: var(--muted); width: 30%; }
+  .webhook-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 13px; flex-wrap: wrap; }
+  .webhook-row code { background: var(--bg); padding: 2px 6px; border-radius: 6px; font-size: 12px; color: var(--muted); }
+  .link-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+  .link-btn:hover { background: var(--bg); }
+  .note {
+    background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--muted);
+    border-radius: 8px; padding: 10px 12px; font-size: 13px; white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .dirty-hint { display: none; align-self: center; color: var(--muted); font-size: 12px; }
+  .dirty-hint.show { display: inline; }
+
+  .actions { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .actions button { padding: 10px 18px; border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+  #approveBtn { background: var(--brand); color: #fff; }
+  #approveBtn:hover { filter: brightness(1.08); }
+  #editBtn { background: var(--surface); color: var(--edited); border-color: var(--edited); }
+  #editBtn:hover { background: var(--edited-bg); }
+  #rejectBtn { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+  #rejectBtn:hover { background: var(--danger-bg); }
+  .actions button:disabled { opacity: .5; cursor: not-allowed; }
+
+  dialog {
+    border: 1px solid var(--border); border-radius: 14px; padding: 24px;
+    width: min(420px, 90vw); box-shadow: 0 20px 50px rgba(16,24,40,.15);
+  }
+  dialog::backdrop { background: rgba(16,24,40,.4); }
+  dialog h3 { margin: 0 0 6px; }
+  dialog p { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  dialog input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 14px; margin-bottom: 14px;
+  }
+  dialog .row { display: flex; gap: 10px; justify-content: flex-end; }
+  dialog button { padding: 9px 16px; border-radius: var(--radius); cursor: pointer; font-size: 14px; border: 1px solid var(--border); background: var(--surface); }
+  dialog button.primary { background: var(--brand); color: #fff; border-color: transparent; }
+  dialog button.danger { background: var(--danger); color: #fff; border-color: transparent; }
+
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--text); color: #fff; padding: 10px 18px; border-radius: 999px;
+    font-size: 14px; transition: transform .25s; z-index: 50; max-width: 80vw;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="18" height="16" rx="3" stroke="#067647" stroke-width="2"/>
+      <path d="M8 12.5l2.5 2.5L16 9" stroke="#067647" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    DraftGate
+  </div>
+  <nav class="filters" id="filters"></nav>
+  <div class="spacer"></div>
+  <button id="tokenBtn">API token</button>
+</header>
+
+<main>
+  <aside id="queue"></aside>
+  <section id="detail"><div class="empty">Select an item to review.</div></section>
+</main>
+
+<dialog id="tokenDialog">
+  <h3>API token</h3>
+  <p>Find it with <code>draftgate token</code> on the machine running the server. Stored locally in your browser.</p>
+  <input id="tokenInput" type="password" placeholder="paste token" autofocus>
+  <div class="row">
+    <button id="tokenCancel" type="button">Cancel</button>
+    <button id="tokenSave" class="primary" type="button">Save</button>
+  </div>
+</dialog>
+
+<dialog id="rejectDialog">
+  <h3>Reject this item</h3>
+  <p>Optionally say why, so the pipeline can revise instead of guessing. It travels back as <code>reason</code> in the webhook payload.</p>
+  <input id="rejectReasonInput" type="text" placeholder="e.g. too promotional, sources missing">
+  <div class="row">
+    <button id="rejectCancel" type="button">Cancel</button>
+    <button id="rejectConfirm" class="danger" type="button">Reject</button>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ----- state -------------------------------------------------------------
+  const state = {
+    token: localStorage.getItem('draftgate_token') || '',
+    filter: '',
+    selectedId: null,
+    dirty: false,  // the content box holds edits that have not been decided yet
+  };
+  const FILTERS = [['', 'All'], ['pending', 'Pending'], ['approved', 'Approved'], ['edited', 'Edited'], ['rejected', 'Rejected']];
+
+  // ----- api ---------------------------------------------------------------
+  async function api(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+    const resp = await fetch(path, { ...opts, headers });
+    if (resp.status === 401) { openTokenDialog(); throw new Error('unauthorized'); }
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.detail || ('HTTP ' + resp.status));
+    }
+    return resp.json();
+  }
+
+  // ----- helpers -----------------------------------------------------------
+  const $ = (sel) => document.querySelector(sel);
+  let toastTimer = null;
+  function toast(message) {
+    const el = $('#toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+  function esc(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+  }
+
+  // ----- token dialog ------------------------------------------------------
+  const dialog = $('#tokenDialog');
+  function openTokenDialog() {
+    if (dialog.open) return;  // never clobber input the user is typing
+    $('#tokenInput').value = state.token;
+    dialog.showModal();
+  }
+  $('#tokenBtn').addEventListener('click', openTokenDialog);
+  $('#tokenCancel').addEventListener('click', () => dialog.close());
+  $('#tokenInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#tokenSave').click();
+  });
+  $('#tokenSave').addEventListener('click', () => {
+    state.token = $('#tokenInput').value.trim();
+    localStorage.setItem('draftgate_token', state.token);
+    dialog.close();
+    refreshAll();
+  });
+
+  // ----- reject dialog -----------------------------------------------------
+  const rejectDialog = $('#rejectDialog');
+  $('#rejectCancel').addEventListener('click', () => rejectDialog.close());
+  $('#rejectReasonInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#rejectConfirm').click();
+  });
+  $('#rejectConfirm').addEventListener('click', () => {
+    const reason = $('#rejectReasonInput').value.trim();
+    const itemId = Number(rejectDialog.dataset.itemId);
+    rejectDialog.close();
+    decide(itemId, 'reject', null, reason || null);
+  });
+
+  // ----- filters -----------------------------------------------------------
+  function renderFilters(stats) {
+    const nav = $('#filters');
+    nav.innerHTML = '';
+    for (const [value, label] of FILTERS) {
+      const btn = document.createElement('button');
+      const count = value ? (stats[value] || 0) : (stats.total || 0);
+      btn.textContent = label + ' · ' + count;
+      if (state.filter === value) btn.classList.add('active');
+      btn.addEventListener('click', () => { state.filter = value; refreshAll(); });
+      nav.appendChild(btn);
+    }
+  }
+
+  // ----- queue list --------------------------------------------------------
+  async function refreshList() {
+    const stats = await api('/api/stats').catch(() => null);
+    if (stats) renderFilters(stats);
+    const query = state.filter ? ('?status=' + state.filter) : '';
+    const items = await api('/api/items' + query).catch(() => []);
+    const queue = $('#queue');
+    if (!items.length) {
+      queue.innerHTML = '<div class="empty" style="margin-top:60px">No items' +
+        (state.filter ? ' with this filter' : '') + '.</div>';
+      return;
+    }
+    queue.innerHTML = '';
+    for (const item of items) {
+      const el = document.createElement('div');
+      el.className = 'queue-item' + (item.id === state.selectedId ? ' selected' : '');
+      el.innerHTML =
+        '<div class="qi-top">' +
+          '<span class="badge ' + esc(item.status) + '">' + esc(item.status) + '</span>' +
+          '<span class="qi-title">' + esc(item.title) + '</span>' +
+        '</div>' +
+        '<div class="qi-preview">' + esc(item.content_preview) + '</div>' +
+        '<div class="qi-meta"><span>#' + item.id + '</span><span>' + esc(item.content_type) + '</span><span>' + esc(item.created_at) + ' UTC</span></div>';
+      el.addEventListener('click', () => { state.selectedId = item.id; refreshAll(); });
+      queue.appendChild(el);
+    }
+  }
+
+  // ----- detail ------------------------------------------------------------
+  async function refreshDetail() {
+    const section = $('#detail');
+    if (state.selectedId == null) {
+      section.innerHTML = '<div class="empty">Select an item to review.</div>';
+      return;
+    }
+    const item = await api('/api/items/' + state.selectedId).catch(() => null);
+    if (!item) { section.innerHTML = '<div class="empty">Item not found.</div>'; return; }
+    state.dirty = false;  // this render replaces the textarea, so nothing is pending
+
+    const decided = item.status !== 'pending';
+    const effectiveContent = item.final_content != null ? item.final_content : item.content;
+    const metaRows = Object.entries(item.metadata || {})
+      .map(([k, v]) => '<tr><td>' + esc(k) + '</td><td>' + esc(typeof v === 'object' ? JSON.stringify(v) : v) + '</td></tr>')
+      .join('');
+    const tagChips = (item.tags || []).map((t) => '<span class="tag">' + esc(t) + '</span>').join('');
+    const reasonHtml = item.reason
+      ? '<label class="field">Reviewer note</label><div class="note">' + esc(item.reason) + '</div>'
+      : '';
+    const webhookHtml = item.callback_url ? (
+      '<label class="field">Webhook</label>' +
+      '<div class="webhook-row">' +
+        '<span class="badge ' + (item.webhook ? esc(item.webhook.status) : 'pending') + '">' + (item.webhook ? esc(item.webhook.status) : 'pending') + '</span>' +
+        '<code>' + esc(item.webhook ? ('attempts: ' + item.webhook.attempts) : '') + '</code>' +
+        (item.webhook && item.webhook.status === 'failed'
+          ? '<button class="link-btn" id="retryWebhookBtn">Retry delivery</button>' : '') +
+        (item.webhook && item.webhook.last_error
+          ? '<span style="color:var(--danger)">' + esc(item.webhook.last_error) + '</span>' : '') +
+      '</div>'
+    ) : '';
+
+    section.innerHTML =
+      '<div class="d-head">' +
+        '<h2 class="d-title">' + esc(item.title) + '</h2>' +
+        '<span class="badge ' + esc(item.status) + '">' + esc(item.status) + '</span>' +
+      '</div>' +
+      '<div class="d-meta">' +
+        '<span>#' + item.id + '</span><span>' + esc(item.content_type) + '</span>' +
+        '<span>created ' + esc(item.created_at) + ' UTC</span>' +
+        (item.decided_at ? '<span>decided ' + esc(item.decided_at) + ' UTC</span>' : '') +
+      '</div>' +
+      (tagChips ? '<div class="tags">' + tagChips + '</div>' : '') +
+      '<label class="field">' + (decided ? 'Final content' + (item.final_content != null ? ' (edited)' : '') : 'Content (editable for "Edit & Approve")') + '</label>' +
+      '<textarea id="contentBox"' + (decided ? ' readonly' : '') + '>' + esc(effectiveContent) + '</textarea>' +
+      reasonHtml +
+      (metaRows ? '<label class="field">Metadata</label><table class="meta-table">' + metaRows + '</table>' : '') +
+      webhookHtml +
+      (decided ? '' :
+        '<div class="actions">' +
+          '<button id="approveBtn">Approve</button>' +
+          '<button id="editBtn">Edit &amp; Approve</button>' +
+          '<button id="rejectBtn">Reject</button>' +
+          '<span class="dirty-hint" id="dirtyHint">Editing — live updates paused</span>' +
+        '</div>');
+
+    const retryBtn = $('#retryWebhookBtn');
+    if (retryBtn) retryBtn.addEventListener('click', async () => {
+      try {
+        await api('/api/items/' + item.id + '/webhook/retry', { method: 'POST' });
+        toast('Webhook delivery retried');
+        refreshAll();
+      } catch (err) { toast('Retry failed: ' + err.message); }
+    });
+
+    if (!decided) {
+      $('#contentBox').addEventListener('input', () => {
+        state.dirty = true;
+        $('#dirtyHint').classList.add('show');
+      });
+      $('#approveBtn').addEventListener('click', () => decide(item.id, 'approve'));
+      $('#rejectBtn').addEventListener('click', () => {
+        $('#rejectReasonInput').value = '';
+        rejectDialog.dataset.itemId = item.id;
+        rejectDialog.showModal();
+      });
+      $('#editBtn').addEventListener('click', () => {
+        const content = $('#contentBox').value;
+        if (!content.trim()) { toast('Content is empty'); return; }
+        decide(item.id, 'edit', content);
+      });
+    }
+  }
+
+  function setActionsBusy(busy) {
+    document.querySelectorAll('.actions button').forEach((b) => { b.disabled = busy; });
+  }
+
+  async function decide(itemId, action, content, reason) {
+    const body = { action };
+    if (action === 'edit') body.content = content;
+    if (reason) body.reason = reason;
+    // The decision waits on the webhook fast path, so show that it is working.
+    setActionsBusy(true);
+    try {
+      const item = await api('/api/items/' + itemId + '/decision', { method: 'POST', body: JSON.stringify(body) });
+      toast('Item #' + itemId + ' ' + item.status);
+      refreshAll();
+    } catch (err) {
+      toast('Decision failed: ' + err.message);
+      setActionsBusy(false);
+    }
+  }
+
+  // ----- polling -----------------------------------------------------------
+  function refreshAll() {
+    refreshList();
+    refreshDetail();
+  }
+
+  if (!state.token) openTokenDialog();
+  refreshAll();
+  setInterval(() => {
+    refreshList();
+    // Re-rendering the detail rebuilds the textarea, so doing it mid-edit would
+    // silently throw the reviewer's changes away. Skip while the box is dirty.
+    if (state.selectedId != null && !state.dirty) refreshDetail();
+  }, 3000);
+})();
+</script>
+</body>
+</html>

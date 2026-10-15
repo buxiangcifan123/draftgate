@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "draftgate"
+version = "0.1.0"
+description = "The human checkpoint for AI content pipelines - human-in-the-loop review for any AI workflow"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "DraftGate contributors" }]
+keywords = ["ai", "human-in-the-loop", "review", "approval", "n8n", "workflow", "pipeline", "content"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+draftgate = "draftgate.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/buxiangcifan123/draftgate"
+Issues = "https://github.com/buxiangcifan123/draftgate/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/draftgate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
