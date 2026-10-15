@@ -317,7 +317,7 @@
       '<label class="field">Webhook</label>' +
       '<div class="webhook-row">' +
         '<span class="badge ' + (item.webhook ? esc(item.webhook.status) : 'pending') + '">' + (item.webhook ? esc(item.webhook.status) : 'pending') + '</span>' +
-        '<code>' + esc(item.webhook ? ('attempts: ' + item.webhook.attempts) : '') + '</code>' +
+        (item.webhook ? '<code>attempts: ' + item.webhook.attempts + '</code>' : '') +
         (item.webhook && item.webhook.status === 'failed'
           ? '<button class="link-btn" id="retryWebhookBtn">Retry delivery</button>' : '') +
         (item.webhook && item.webhook.last_error

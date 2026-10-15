@@ -6,6 +6,8 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
 [![中文文档](https://img.shields.io/badge/docs-%E4%B8%AD%E6%96%87-red)](README.zh-CN.md)
 
+![DraftGate review queue — approve, edit, reject](docs/demo.gif)
+
 Your AI pipeline drafts the content. **You** decide what ships.
 
 DraftGate is a tiny self-hosted review station for any AI workflow — n8n, Dify,

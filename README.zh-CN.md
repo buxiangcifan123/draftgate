@@ -6,6 +6,8 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
 [![English](https://img.shields.io/badge/docs-English-blue)](README.md)
 
+![DraftGate 审核队列演示 —— 通过、修改、拒绝](docs/demo.gif)
+
 AI 管线负责起草内容，**能不能发出去由你决定**。
 
 DraftGate 是一个轻量的自托管审核站，适配任何 AI 工作流——n8n、Dify、自研脚本、
